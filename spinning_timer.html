@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spinning Training</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#111;background:#f5f5f5}
+*{box-sizing:border-box} body{margin:0;padding:16px} main{max-width:680px;margin:0 auto}
+.card{background:#fff;border:1px solid #ddd;border-radius:18px;padding:18px;margin-bottom:14px}
+h1{font-size:26px;margin:0 0 5px} .muted{color:#666}.now{font-size:16px;font-weight:700;margin-top:8px}
+.timer{font-size:64px;font-weight:800;letter-spacing:-2px;margin:10px 0}.pulse{font-size:28px;font-weight:800;margin:6px 0}
+.action{font-size:28px;font-weight:800}.progress{height:10px;background:#e8e8e8;border-radius:99px;overflow:hidden;margin:14px 0}
+.bar{height:100%;background:#111;width:0}.controls{display:flex;gap:10px;flex-wrap:wrap}
+button{font-size:17px;font-weight:700;border:0;border-radius:12px;padding:13px 17px;background:#111;color:#fff;min-height:48px}
+button.secondary{background:#e9e9e9;color:#111}.steps{display:grid;gap:8px}
+.step{padding:10px 12px;background:#f4f4f4;border-radius:12px;display:grid;grid-template-columns:72px 1fr;gap:8px}
+.step.active{outline:3px solid #111;background:#fff}.done{opacity:.45}
+.end{font-size:34px;font-weight:900;text-align:center;padding:20px 0}
+@media(max-width:420px){.timer{font-size:56px}.action{font-size:24px}.pulse{font-size:25px}}
+</style>
+</head>
+<body>
+<main>
+<div class="card">
+  <h1 id="title">Spinning</h1>
+  <div id="total" class="muted"></div>
+</div>
+
+<div class="card">
+  <div class="now">JETZT</div>
+  <div id="action" class="action">Training wird geladen …</div>
+  <div id="pulse" class="pulse">❤️ –</div>
+  <div id="timer" class="timer">00:00</div>
+  <div class="progress"><div id="bar" class="bar"></div></div>
+  <div class="controls">
+    <button id="pause">PAUSE</button>
+    <button id="restart" class="secondary">NEU STARTEN</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="now" style="margin-bottom:10px">ABLAUF</div>
+  <div id="steps" class="steps"></div>
+</div>
+
+<div class="muted" style="font-size:13px;padding:0 4px 18px">
+Widerstand so einstellen, dass der angegebene Pulsbereich ungefähr erreicht wird.
+Bei Schwindel, Schmerzen oder Unwohlsein sofort stoppen.
+</div>
+</main>
+
+<script>
+const workouts = {
+ regeneration: {title:"🟢 Regeneration", steps:[[5,"100–110","sehr locker"],[20,"105–120","locker fahren"],[5,"unter 110","ausrollen"]]},
+ grundlage: {title:"🔵 Grundlagenausdauer", steps:[[5,"100–120","einfahren"],[10,"120–130","ruhig fahren"],[15,"130–140","gleichmäßig"],[5,"120–130","lockerer"],[5,"unter 120","ausfahren"]]},
+ tempo: {title:"🟡 Tempoausdauer", steps:[[5,"100–120","einfahren"],[10,"130–140","Tempo aufnehmen"],[15,"140–150","zügig fahren"],[5,"130–140","Tempo reduzieren"],[5,"unter 120","ausfahren"]]},
+ intervall: {title:"🟠 Intervall", steps:[[5,"100–120","einfahren"],[5,"120–140","vorbereiten"],[3,"150–170","schnell"],[2,"120–140","locker"],[3,"150–170","schnell"],[2,"120–140","locker"],[3,"150–170","schnell"],[2,"120–140","locker"],[3,"150–170","schnell"],[2,"120–140","locker"],[5,"unter 120","ausfahren"]]},
+ hiit: {title:"🔴 HIIT", steps:[[8,"100–130","gut aufwärmen"],[1,"zügig steigend","sehr schnell"],[2,"120–140","locker"],[1,"zügig steigend","sehr schnell"],[2,"120–140","locker"],[1,"zügig steigend","sehr schnell"],[2,"120–140","locker"],[1,"zügig steigend","sehr schnell"],[2,"120–140","locker"],[1,"zügig steigend","sehr schnell"],[2,"120–140","locker"],[5,"unter 120","ausfahren"]]},
+ fussball: {title:"⚽ Fußball-Ausdauer", steps:[[5,"100–120","einfahren"],[5,"120–140","locker"],[5,"140–150","Tempo"],[3,"150–170","intensiv"],[3,"120–140","erholen"],[5,"140–150","Tempo"],[3,"150–170","intensiv"],[3,"120–140","erholen"],[3,"140–160","Endspurt"],[5,"unter 120","ausfahren"]]}
+};
+const qs = new URLSearchParams(location.search); let key = qs.get("training") || "grundlage"; if(!workouts[key]) key="grundlage"; const w = workouts[key]; const totalSeconds = w.steps.reduce((a,s)=>a+s[0]*60,0); let stepIndex=0, remaining=w.steps[0][0]*60, running=true, tickId=null; const el=id=>document.getElementById(id); el("title").textContent=w.title; el("total").textContent=(totalSeconds/60)+" Minuten · startet automatisch"; const stepsEl=el("steps");
+function renderSteps(){stepsEl.innerHTML="";w.steps.forEach((s,i)=>{const d=document.createElement("div");d.className="step"+(i===stepIndex?" active":"")+(i<stepIndex?" done":"");d.innerHTML="<strong>"+s[0]+" Min.</strong><div><strong>❤️ "+s[1]+"</strong><br><span class='muted'>"+s[2]+"</span></div>";stepsEl.appendChild(d);});}
+function fmt(sec){const m=Math.floor(sec/60), s=sec%60; return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");}
+function update(){if(stepIndex>=w.steps.length) return; const s=w.steps[stepIndex]; el("action").textContent=s[2].toUpperCase(); el("pulse").textContent="❤️ "+s[1]; el("timer").textContent=fmt(remaining); const stepTotal=s[0]*60; el("bar").style.width=((stepTotal-remaining)/stepTotal*100)+"%"; renderSteps();}
+function finish(){running=false; clearInterval(tickId); el("action").innerHTML="<div class='end'>FERTIG ✓</div>"; el("pulse").textContent="Locker aussteigen"; el("timer").textContent="00:00"; el("bar").style.width="100%"; renderSteps();}
+function tick(){if(!running)return; remaining--; if(remaining<0){stepIndex++; if(stepIndex>=w.steps.length){ finish(); return; } remaining=w.steps[stepIndex][0]*60;} update();}
+function startClock(){clearInterval(tickId); tickId=setInterval(tick,1000);} el("pause").addEventListener("click",()=>{running=!running; el("pause").textContent=running?"PAUSE":"WEITER";}); el("restart").addEventListener("click",()=>{stepIndex=0; remaining=w.steps[0][0]*60; running=true; el("pause").textContent="PAUSE"; update();}); update(); startClock();
+</script>
+</body>
+</html>
